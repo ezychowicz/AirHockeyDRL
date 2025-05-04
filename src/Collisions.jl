@@ -1,35 +1,32 @@
-module Collisions
-using CoreTypes, LinearAlgebra
-
 
 map_int_to_type(type::Int)::CollisionType = COLLISIONS_MAPPING[type]
 
 
-function handle_collision(collision::Collision{PuckWallCollision_X})
+function handle_collision!(collision::Collision{PuckWallCollision_X, V}) where {V<:Real}
     puck = collision.mid_state.puck
     e = collision.params.band_e_loss # energy loss coefficient
     puck.v[1] = -e*puck.v[1] 
 end
 
-function handle_collision(collision::Collision{PuckWallCollision_Y})
+function handle_collision!(collision::Collision{PuckWallCollision_Y, V}) where {V<:Real}
     puck = collision.mid_state.puck
     e = collision.params.band_e_loss # energy loss coefficient
     puck.v[2] = -e*puck.v[2] 
 end
 
-function handle_collision(collision::Collision{MalletWallCollision_X})
+function handle_collision!(collision::Collision{MalletWallCollision_X, V}) where {V<:Real}
     mallet1, mallet2 = collision.mid_state.agent1, collision.mid_state.agent2
     mallet = !isnothing(mallet1) ? mallet1 : mallet2
     mallet.v = zeros(Float32, 2) # po prostu następuje zatrzymanie malleta przy zderzeniu
 end
 
-function handle_collision(collision::Collision{MalletWallCollision_Y})
+function handle_collision!(collision::Collision{MalletWallCollision_Y, V}) where {V<:Real}
     mallet1, mallet2 = collision.mid_state.agent1, collision.mid_state.agent2
     mallet = !isnothing(mallet1) ? mallet1 : mallet2
     mallet.v = zeros(Float32, 2) 
 end
 
-function handle_collision!(collision::Collision{PuckMalletCollision})
+function handle_collision!(collision::Collision{PuckMalletCollision, V}) where {V<:Real}
     C = collision.params.restitution
     mallet1, mallet2 = collision.mid_state.agent1, collision.mid_state.agent2
     mallet = !isnothing(mallet1) ? mallet1 : mallet2
@@ -54,6 +51,4 @@ function handle_collision!(collision::Collision{PuckMalletCollision})
     v_normal_puck = (C*mallet_mass*(v_mallet[1] - v_puck[1]) + mallet_mass*v_mallet[1] + puck_mass*v_puck[1])/(mallet_mass + puck_mass)
     v_puck[1] = v_normal_puck # zaktualizowana składowa normalna 
     @. puck.v = base1*v_puck[1] + base2*v_puck[2] # kombinacja liniowa w 
-end
-
 end

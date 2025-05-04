@@ -1,4 +1,3 @@
-module CoreTypes
 export Object, Puck, Mallet, EnvParams, AirHockeyEnv, State, Action, CollisionType, Collision, COLLISIONS_MAPPING, 
     PuckWallCollision_X, PuckWallCollision_Y, MalletWallCollision_X, MalletWallCollision_Y, PuckMalletCollision
 
@@ -53,19 +52,18 @@ struct MalletWallCollision_X <: CollisionType end
 struct MalletWallCollision_Y <: CollisionType end
 struct PuckMalletCollision <: CollisionType end    
 const COLLISIONS_MAPPING = Dict(
-    1 => PuckWallCollision_X,
-    2 => PuckWallCollision_Y,
-    3 => PuckMalletCollision,
-    4 => PuckMalletCollision,
-    5 => MalletWallCollision_X,
-    6 => MalletWallCollision_X,
-    7 => MalletWallCollision_Y,
-    8 => MalletWallCollision_Y
+    1 => PuckWallCollision_X(),
+    2 => PuckWallCollision_Y(),
+    3 => PuckMalletCollision(),
+    4 => PuckMalletCollision(),
+    5 => MalletWallCollision_X(),
+    6 => MalletWallCollision_X(),
+    7 => MalletWallCollision_Y(),
+    8 => MalletWallCollision_Y()
 )
-struct Collision{T <: CollisionType} # teraz mogę robić multiple-dispatch ze względu na CollisionType
-    params::EnvParams
+struct Collision{T <: CollisionType, V <: Real} # teraz mogę robić multiple-dispatch ze względu na CollisionType
+    params::EnvParams{V}
     mid_state::State
     type::T
 end
 
-end

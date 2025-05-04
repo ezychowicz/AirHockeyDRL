@@ -1,4 +1,3 @@
-module Utils
 function solve_quadratic(a, b, c)
     if isapprox(a, 0; atol=0, rtol=sqrt(eps(Float64)))
         # Równanie liniowe: bx + c = 0
@@ -21,5 +20,3 @@ function solve_quadratic(a, b, c)
 end
 
 convert_from_polar_to_cartesian(r, θ) = Vector{Float32}([r * cos(θ), r * sin(θ)])
-
-end

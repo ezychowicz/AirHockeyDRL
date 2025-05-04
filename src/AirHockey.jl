@@ -1,13 +1,12 @@
 module AirHockey
+println(pwd())
+using LinearAlgebra
+# Wczytaj wewnętrzne pliki
+include("CoreTypes.jl")
+include("Utils.jl")
+include("Collisions.jl")
+include("Environment.jl")
 
-using ReinforcementLearning
-using ReinforcementLearningCore
-using ReinforcementLearningEnvironments
 
-greet() = print("Hello World!")
-
-function run_my_env()
-    
-end
 
 end

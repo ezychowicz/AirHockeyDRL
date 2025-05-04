@@ -1,5 +1,4 @@
-module Environment
-using Utils, Collisions, CoreTypes, LinearAlgebra
+
 
 function reset!(env::AirHockeyEnv)
     env.state = State(
@@ -88,7 +87,7 @@ function time_to_mallet(env::AirHockeyEnv, puck::Puck, mallet::Mallet)
     b = 2dot(dpos, dv)
     c = dot(dpos, dpos) - (env.params.puck_radius + env.params.mallet_radius)^2
 
-    roots = Utils.solve_quadratic(a, b, c) # zwraca posortowane pierwiastki, jeśli istnieją
+    roots = solve_quadratic(a, b, c) # zwraca posortowane pierwiastki, jeśli istnieją
 
     for t in roots
         if 0 ≤ t < env.params.dt 
@@ -100,7 +99,7 @@ function time_to_mallet(env::AirHockeyEnv, puck::Puck, mallet::Mallet)
 end
 
 
-function update_positions!(puck::Puck, mallet1::Mallet, mallet2::Mallet, dt::Real)
+function update_positions!(puck::Puck, mallet1::Mallet, mallet2::Mallet, dt::V) where {V<:Real}
     """
     Zaktualizuj pozycje wszystkich obiektów w czasie dt. 
     Funkcja ta przyjmuje, że w tym czasie NIE MA kolizji.
@@ -114,15 +113,16 @@ end
 function execute_collision!(env::AirHockeyEnv, idx::Int)
     mallet1, mallet2, puck = env.state.agent1, env.state.agent2, env.state.puck
     if idx >= 3  
-        agent1 = idx % 2 == 1 ? mallet1 : nothing # posłuży jako informacja który mallet sie zderza
-        agent2 = idx % 2 == 0 ? mallet2 : nothing
+        mallet1 = idx % 2 == 1 ? mallet1 : nothing # posłuży jako informacja który mallet sie zderza
+        mallet2 = idx % 2 == 0 ? mallet2 : nothing
     end
     mid_state = State( # przekazujemy mid_state - stan w momencie kolizji (zmienił się na pewno względem stanu wejściowego i afterstatea)
-        agent1 = agent1, #przekaz wskazania/nothingi
-        agent2 = agent2,
+        agent1 = mallet1, #przekaz wskazania/nothingi
+        agent2 = mallet2,
         puck = puck
     )
-    handle_collision!(Collision(env.params, mid_state, Collisions.map_int_to_type(idx))) #modyfikuje pola mid_state, które są referencjami do tego samego co w envie
+    println(typeof(Collision(env.params, mid_state, map_int_to_type(idx))))
+    handle_collision!(Collision(env.params, mid_state, map_int_to_type(idx))) #modyfikuje pola mid_state, które są referencjami do tego samego co w envie
 end
 
 function simulate_dt!(env::AirHockeyEnv)
@@ -170,8 +170,8 @@ function step!(env::AirHockeyEnv, action1::Action, action2::Action)
 
     # predkości zaraz po wykonaniu akcji (dodaniu dv do poprzednich wektorów predkości). 
     # Zmieniam stan enva na after_state - stan po wykonaniu akcji, ale przed stanem następnym
-    env.state.agent1.v .+= Utils.convert_from_polar_to_cartesian(action1.dv_len, action1.dv_angle)
-    env.state.agent2.v .+= Utils.convert_from_polar_to_cartesian(action2.dv_len, action2.dv_angle)
+    env.state.agent1.v .+= convert_from_polar_to_cartesian(action1.dv_len, action1.dv_angle)
+    env.state.agent2.v .+= convert_from_polar_to_cartesian(action2.dv_len, action2.dv_angle)
     simulate_dt!(env)
     
    
@@ -179,4 +179,3 @@ end
 
 is_terminated(env::AirHockeyEnv) = env.done
 
-end
