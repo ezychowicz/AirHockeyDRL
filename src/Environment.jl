@@ -1,65 +1,15 @@
 module Environment
-using Utils, Collisions
-
-struct EnvParams{T <: Real}
-    x_len::T
-    y_len::T
-    goal_width::T
-    puck_radius::T
-    mallet_radius::T
-    agent1_initial_pos::T
-    agent2_initial_pos::T
-    dt::T
-    terminal_velo::T
-    band_e_loss::T
-end
-
-Base.@kwdef struct StateVector # kwdef helps with constructor
-    agent1_position::Vector{Float32}
-    agent2_position::Vector{Float32}   
-    agent1_velo::Vector{Float32}
-    agent2_velo::Vector{Float32}  
-    puck_position::Vector{Float32}     
-    puck_velocity::Vector{Float32}     
-end
-
-mutable struct AirHockeyEnv{T <: Real} <: AbstractEnv
-    params::EnvParams{T}
-    state::StateVector
-    done::Bool
-end
-
-
-function opponent_goal(env::AirHockeyEnv)::Bool 
-    puck_pos = env.state.puck.position
-    puck_pos[1] > env.params.x_len + 2puck.radius && (env.y_len/2 - env.goal_width/2 <= puck_pos[2] <= env.y_len/2 + env.goal_width/2)  
-end
-
-function reward(env::AirHockeyEnv)
-    if done
-        if opponent_goal(env::AirHockeyEnv)
-            return -1.0
-        else
-            return 1.0
-    end
-    return 0.0
-end
+using Utils, Collisions, CoreTypes, LinearAlgebra
 
 function reset!(env::AirHockeyEnv)
-    env.state = StateVector(
-        agent1_position = env.agent1_initial_pos,
-        agent2_position = env.agent2_initial_pos,
-        agent1_velo = zeros(Float32, 2),
-        agent2_velo = zeros(Float32, 2),
-        puck_position = [env.x_len/2, env.y_len/2],
-        puck_velocity = zeros(Float32, 2)
+    env.state = State(
+        agent1 = Mallet(zeros(Float32, 2), env.params.agent1_initial_pos),
+        agent2 = Mallet(zeros(Float32, 2), env.params.agent2_initial_pos),
+        puck = Puck(zeros(Float32, 2), [env.params.x_len/2, env.params.y_len/2])
     )
     env.done = false
     return env.state
 end
-
-
-
 
 function time_to_wall(env::AirHockeyEnv, puck::Puck) 
     """
@@ -150,7 +100,7 @@ function time_to_mallet(env::AirHockeyEnv, puck::Puck, mallet::Mallet)
 end
 
 
-function update_positions!(puck::Puck, mallet1::Mallet, mallet2::Mallet, dt::Float32)
+function update_positions!(puck::Puck, mallet1::Mallet, mallet2::Mallet, dt::Real)
     """
     Zaktualizuj pozycje wszystkich obiektów w czasie dt. 
     Funkcja ta przyjmuje, że w tym czasie NIE MA kolizji.
@@ -161,8 +111,22 @@ function update_positions!(puck::Puck, mallet1::Mallet, mallet2::Mallet, dt::Flo
     mallet2.pos += mallet2.v * dt
 end
 
+function execute_collision!(env::AirHockeyEnv, idx::Int)
+    mallet1, mallet2, puck = env.state.agent1, env.state.agent2, env.state.puck
+    if idx >= 3  
+        agent1 = idx % 2 == 1 ? mallet1 : nothing # posłuży jako informacja który mallet sie zderza
+        agent2 = idx % 2 == 0 ? mallet2 : nothing
+    end
+    mid_state = State( # przekazujemy mid_state - stan w momencie kolizji (zmienił się na pewno względem stanu wejściowego i afterstatea)
+        agent1 = agent1, #przekaz wskazania/nothingi
+        agent2 = agent2,
+        puck = puck
+    )
+    handle_collision!(Collision(env.params, mid_state, Collisions.map_int_to_type(idx))) #modyfikuje pola mid_state, które są referencjami do tego samego co w envie
+end
 
-function simulate_dt(env::AirHockeyEnv, puck::Puck, mallet1::Mallet, mallet2::Mallet)
+function simulate_dt!(env::AirHockeyEnv)
+    mallet1, mallet2, puck = env.state.agent1, env.state.agent2, env.state.puck
     t_remain = env.params.dt
 
     while t_remain > 0
@@ -173,20 +137,13 @@ function simulate_dt(env::AirHockeyEnv, puck::Puck, mallet1::Mallet, mallet2::Ma
         tm2_to_wallx, tm2_to_wally = time_to_wall(env, mallet2)
         # Znajdź najbliższe zdarzenie - UWAGA: tak naprawdę tylko ten pierwszy czas jest zawsze prawdziwy.
         # Obliczone czasy nie uwzględniają  bowiem zderzenia, które się wydarzy w minimum z tych czasów.
-        times = [tx, ty, tm1, tm2, tm1_to_wallx, tm1_to_wally, tm2_to_wallx, tm2_to_wally]
+        times = [tx, ty, tm1, tm2, tm1_to_wallx, tm2_to_wallx, tm1_to_wally, tm2_to_wally]
         t_next, idx = findmin(times)
 
         update_positions!(puck, mallet1, mallet2, t_next) # przewiń symulacje do momentu kolizji
 
         if t_next != Inf # doszło do kolizji
-            handle_collision(Collision(env.params, StateVector(
-                agent1_position = mallet1.pos,
-                agent2_position = mallet2.pos,
-                agent1_velo = mallet1.v,
-                agent2_velo = mallet2.v,
-                puck_position = puck.pos,
-                puck_velocity = puck.v
-            ), Collisions.map_int_to_type(idx))) # przekazujemy mid_state - stan w momencie kolizji (zmienił się na pewno względem stanu wejściowego)
+            execute_collision!(env, idx)
         end
         t_remain -= t_next # zmniejsz pozostały czas o czas już zhandlowany
     end
@@ -211,19 +168,13 @@ function step!(env::AirHockeyEnv, action1::Action, action2::Action)
     Stan 1 -> ...
     """
 
-    # predkości zaraz po wykonaniu akcji (dodaniu dv do poprzednich wektorów predkości)
-    a1_start_velo = env.state.agent1_velo + Utils.convert_from_polar_to_cartesian(action1.dv_len, action1.dv_angle)
-    a2_start_velo = env.state.agent2_velo + Utils.convert_from_polar_to_cartesian(action2.dv_len, action2.dv_angle)
-
-    #TODO rozwazyc ruchy krazka i agentow i czy dochodzi do zderzenia (za pomocą (x(t), y(t)))
-    env.state = StateVector(
-        agent1_position = ,
-        agent2_position = ,
-        agent1_velo = ,
-        agent2_velo = ,
-        puck_position = ,
-        puck_velocity = 
-    )
+    # predkości zaraz po wykonaniu akcji (dodaniu dv do poprzednich wektorów predkości). 
+    # Zmieniam stan enva na after_state - stan po wykonaniu akcji, ale przed stanem następnym
+    env.state.agent1.v .+= Utils.convert_from_polar_to_cartesian(action1.dv_len, action1.dv_angle)
+    env.state.agent2.v .+= Utils.convert_from_polar_to_cartesian(action2.dv_len, action2.dv_angle)
+    simulate_dt!(env)
+    
+   
 end
 
 is_terminated(env::AirHockeyEnv) = env.done
