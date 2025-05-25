@@ -10,6 +10,19 @@ function reset!(env::AirHockeyEnv)
     return env
 end
 
+function reward(env::AirHockeyEnv)
+    """
+    Zwraca nagrodę obu agentom. 
+    Agent 1 dostaje 1.0, gdy padł gol i krążek jest na połowie przeciwnika.
+    """
+    if env.done && env.state.puck.pos[1] > x_len/2
+       return 1.0, -1.0
+    elseif env.done
+        return -1.0, 1.0
+    end
+    return 0.0, 0.0
+end
+
 function time_to_wall(env::AirHockeyEnv, puck::Puck) 
     """
     Oblicza czas do kolizji krążka ze ścianami bocznymi i zabramkowymi przy aktualnej prędkości i pozycji.
@@ -160,6 +173,7 @@ function simulate_dt!(env::AirHockeyEnv)
     end
 end
 
+
 function step!(env::AirHockeyEnv, action1::Action, action2::Action)
     """
     step - przejście w czasie o dt.
@@ -184,8 +198,9 @@ function step!(env::AirHockeyEnv, action1::Action, action2::Action)
     env.state.agent1.v .+= convert_from_polar_to_cartesian(action1.dv_len, action1.dv_angle)
     env.state.agent2.v .+= convert_from_polar_to_cartesian(action2.dv_len, action2.dv_angle)
     simulate_dt!(env)
+    r1, r2, s', d = reward(env)..., copy(env.state), copy(is_terminated(env))
     if is_terminated(env); reset!(env) end
-
+    return r1, r2, s', d
 end
 
 is_terminated(env::AirHockeyEnv) = env.done

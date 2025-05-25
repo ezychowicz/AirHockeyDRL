@@ -1,4 +1,3 @@
-# Dodaj ścieżkę do źródeł, jeśli jest potrzebne
 push!(LOAD_PATH, joinpath(@__DIR__, "..", "src"))
 
 # Importujemy potrzebne moduły
@@ -31,7 +30,7 @@ agent1 = AirHockey.Mallet([0.0f0, 0.0f0], [5.0f0, 25.0f0])
 agent2 = AirHockey.Mallet([0.0f0, 0.0f0], [95.0f0, 25.0f0])
 env = AirHockey.AirHockeyEnv(params, AirHockey.State(agent1, agent2, AirHockey.Puck([0.0f0, 0.0f0], [50.0f0, 25.0f0])), false)
 # w sumie to co wyzej bez znaczenia
-env = AirHockey.reset!(env)
+AirHockey.reset!(env)
 
 
 
@@ -74,8 +73,8 @@ function simulate()
     push!(mallet2_states, deepcopy(env.state.agent2))
     for _ ∈ 1:5000
         # Tutaj agent wykonuje akcje
-        action1 = AirHockey.action(policy1, env.state)
-        action2 = AirHockey.action(policy2, env.state)
+        action1 = AirHockey.action(env, policy1)
+        action2 = AirHockey.action(env, policy2)
         trace = TracedEnv.step!(env, action1, action2)  
         append!(times_cumul, trace.times)
         append!(puck_states, trace.puck_trace)
