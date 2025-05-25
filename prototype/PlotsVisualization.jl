@@ -4,25 +4,24 @@ push!(LOAD_PATH, joinpath(@__DIR__, "..", "src"))
 # Importujemy potrzebne moduły
 using Plots
 using GLMakie
-# using GeometryBasics
+# using Distributions
 using AirHockey  
 include("TracedEnv.jl")
 using .TracedEnv
-# gr()  # Ustawienie backendu dla animacji
 
 # === INICJALIZACJA === #
 params = AirHockey.EnvParams(  
     x_len = 100.0f0,
     y_len = 50.0f0,
-    goal_width = 20.0f0,
+    goal_width = 15.0f0,
     puck_radius = 1.0f0,
     mallet_radius = 2.0f0,
     agent1_initial_pos = [10.0f0, 25.0f0],
     agent2_initial_pos = [90.0f0, 25.0f0],
     dt = 0.02f0,
-    terminal_velo = 1.0f0,
+    max_dv = 10.0f0,
     band_e_loss = 0.95f0,
-    restitution = 0.95f0,
+    restitution = 0.99f0,
     puck_mass = 1.0f0,
     mallet_mass = 2.0f0
 )
@@ -30,12 +29,14 @@ params = AirHockey.EnvParams(
 # Tworzymy instancję środowiska z AirHockeyEnv
 agent1 = AirHockey.Mallet([0.0f0, 0.0f0], [5.0f0, 25.0f0])
 agent2 = AirHockey.Mallet([0.0f0, 0.0f0], [95.0f0, 25.0f0])
-env = AirHockey.AirHockeyEnv(params, AirHockey.State(agent1, agent2, AirHockey.Puck([0.0f0, 0.0f0], [25.0f0, 25.0f0])), false)
+env = AirHockey.AirHockeyEnv(params, AirHockey.State(agent1, agent2, AirHockey.Puck([0.0f0, 0.0f0], [50.0f0, 25.0f0])), false)
+# w sumie to co wyzej bez znaczenia
+env = AirHockey.reset!(env)
 
 
 
-# Ustawiamy początkową prędkość krążka
-env.state.puck.v .= [-5.0f0, 1.0f0]
+# # Ustawiamy początkową prędkość krążka
+# env.state.puck.v .= [-40.0f0, -40f0]
 
 # === ANIMACJA === #
 function interpolate_movement(xs::Vector{V},ys::Vector{V},vs::Vector{Vector{T}}, times::Vector{Float32}; precision::Int64 = 1000) where {V,T <: Real}
@@ -46,11 +47,13 @@ function interpolate_movement(xs::Vector{V},ys::Vector{V},vs::Vector{Vector{T}},
     """
     xs_diffs = xs[2:end] .- xs[1:end-1]
     new_xs, new_ys = Vector{V}(), Vector{V}()
-    full_time = sum(times) # czas calej symulacji
+    full_time = sum(times) # czas calej symulacji\
+    # println("lengths:$(length(xs_diffs)) $(length(times))")
     for i in eachindex(xs_diffs)
+        # println("time=$(times[i]), time_calc=$(xs_diffs[i]/vs[i][1])")
         k = times[i]/full_time # czas kroku wzgledem danej symulacji: liczba klatek ma być proporcjonalna
         frames = max(2,round(Int64,k*precision))
-        println("frames:$frames")
+        # println("frames:$frames")
         xs_filler = collect(range(xs[i], xs[i+1], frames))
         ys_filler = collect(range(ys[i], ys[i+1], frames))
         append!(new_xs, xs_filler)
@@ -60,12 +63,20 @@ function interpolate_movement(xs::Vector{V},ys::Vector{V},vs::Vector{Vector{T}},
 end
 
 function simulate()
+    policy1 = AirHockey.RandomPolicy(AirHockey.Uniform(-π, π), AirHockey.Uniform(0, 10))
+    policy2 = AirHockey.RandomPolicy(AirHockey.Uniform(-π, π), AirHockey.Uniform(0, 10))
     puck_states = Vector{AirHockey.Puck}()
     mallet1_states = Vector{AirHockey.Mallet}()
     mallet2_states = Vector{AirHockey.Mallet}()
     times_cumul = Vector{Float32}()
-    for _ ∈ 1:50
-        trace = TracedEnv.simulate_dt!(env)  
+    push!(puck_states, deepcopy(env.state.puck))
+    push!(mallet1_states, deepcopy(env.state.agent1))
+    push!(mallet2_states, deepcopy(env.state.agent2))
+    for _ ∈ 1:5000
+        # Tutaj agent wykonuje akcje
+        action1 = AirHockey.action(policy1, env.state)
+        action2 = AirHockey.action(policy2, env.state)
+        trace = TracedEnv.step!(env, action1, action2)  
         append!(times_cumul, trace.times)
         append!(puck_states, trace.puck_trace)
         append!(mallet1_states, trace.mallet1_trace)
@@ -113,6 +124,23 @@ axis = f[1,1] = Axis(scene;
     xlabel = "x", ylabel = "y",
     title = "Klatka 1"
 )
+# --- RYSOWANIE BRAMEK --- #
+goal_half = params.goal_width / 2
+center_y = params.y_len / 2
+goal_ymin = center_y - goal_half
+goal_ymax = center_y + goal_half
+
+# Lewa bramka (x=0)
+lines!(axis, [0.0, 0.0], [goal_ymin, goal_ymax], color = :green, linewidth = 10)
+
+# Prawa bramka (x=x_len)
+lines!(axis, [params.x_len, params.x_len], [goal_ymin, goal_ymax], color = :green, linewidth = 10)
+
+# --- OBRAMOWANIE BOISKA --- #
+# Prostokąt: 4 rogi boiska
+x_rect = [0.0, params.x_len, params.x_len, 0.0, 0.0]
+y_rect = [0.0, 0.0, params.y_len, params.y_len, 0.0]
+lines!(axis, x_rect, y_rect, color = :black, linewidth = 2)
 
 scatter_puck = GLMakie.scatter!(axis, xy_puck; color = :red, markersize = 20env.params.puck_radius)
 scatter_mallets = GLMakie.scatter!(axis, xy_mallet12; color = :blue, markersize = 20env.params.mallet_radius)

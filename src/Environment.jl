@@ -7,7 +7,7 @@ function reset!(env::AirHockeyEnv)
         puck = Puck(zeros(Float32, 2), [env.params.x_len/2, env.params.y_len/2])
     )
     env.done = false
-    return env.state
+    return env
 end
 
 function time_to_wall(env::AirHockeyEnv, puck::Puck) 
@@ -30,7 +30,7 @@ function time_to_wall(env::AirHockeyEnv, puck::Puck)
     elseif puck.v[2] < 0
         ty = (r - puck.pos[2]) / puck.v[2]
     end
-    return tx, ty
+    return (tx <= env.params.dt ? tx : Inf), (ty <= env.params.dt ? ty : Inf)
 end
 
 function time_to_wall(env::AirHockeyEnv, mallet::Mallet)
@@ -67,7 +67,7 @@ function time_to_wall(env::AirHockeyEnv, mallet::Mallet)
         ty = (r - mallet.pos[2]) / mallet.v[2]
     end
 
-    return tx, ty
+    return (tx <= env.params.dt ? tx : Inf), (ty <= env.params.dt ? ty : Inf)
 end
 
 
@@ -86,11 +86,11 @@ function time_to_mallet(env::AirHockeyEnv, puck::Puck, mallet::Mallet)
     a = dot(dv, dv)
     b = 2dot(dpos, dv)
     c = dot(dpos, dpos) - (env.params.puck_radius + env.params.mallet_radius)^2
-
+    # println("$(a)t² + $(b)t + $c = 0")
     roots = solve_quadratic(a, b, c) # zwraca posortowane pierwiastki, jeśli istnieją
-
+    # println(roots)
     for t in roots
-        if 0 ≤ t < env.params.dt 
+        if 1e-6 < t < env.params.dt 
             return t
         end
     end
@@ -121,15 +121,22 @@ function execute_collision!(env::AirHockeyEnv, idx::Int)
         agent2 = mallet2,
         puck = puck
     )
-    println(typeof(Collision(env.params, mid_state, map_int_to_type(idx))))
-    handle_collision!(Collision(env.params, mid_state, map_int_to_type(idx))) #modyfikuje pola mid_state, które są referencjami do tego samego co w envie
+
+    # println(typeof(Collision(env.params, mid_state, map_int_to_type(idx))))
+    coll = Collision(env.params, mid_state, map_int_to_type(idx))
+    handle_collision!(coll) #modyfikuje pola mid_state, które są referencjami do tego samego co w envie
+    if coll.is_goal
+        env.done = true
+    end
+    ϵ = 1e-1
+    puck.pos += puck.v * ϵ # przesuń trochę zgodnie z nową prędkością - żeby nie wykryło dugi raz tej samej kolizji
 end
 
 function simulate_dt!(env::AirHockeyEnv)
     mallet1, mallet2, puck = env.state.agent1, env.state.agent2, env.state.puck
     t_remain = env.params.dt
 
-    while t_remain > 0
+    while t_remain > 0 && !env.done
         tx, ty = time_to_wall(env, puck)
         tm1 = time_to_mallet(env, puck, mallet1) 
         tm2 = time_to_mallet(env, puck, mallet2)
@@ -137,13 +144,17 @@ function simulate_dt!(env::AirHockeyEnv)
         tm2_to_wallx, tm2_to_wally = time_to_wall(env, mallet2)
         # Znajdź najbliższe zdarzenie - UWAGA: tak naprawdę tylko ten pierwszy czas jest zawsze prawdziwy.
         # Obliczone czasy nie uwzględniają  bowiem zderzenia, które się wydarzy w minimum z tych czasów.
-        times = [tx, ty, tm1, tm2, tm1_to_wallx, tm2_to_wallx, tm1_to_wally, tm2_to_wally]
+        # println(times)
+        # times = [tx, ty, tm1, tm2, tm1_to_wallx, tm2_to_wallx, tm1_to_wally, tm2_to_wally]
         t_next, idx = findmin(times)
 
-        update_positions!(puck, mallet1, mallet2, t_next) # przewiń symulacje do momentu kolizji
-
+        
         if t_next != Inf # doszło do kolizji
+            update_positions!(puck, mallet1, mallet2, t_next) # przewiń symulacje do momentu kolizji
             execute_collision!(env, idx)
+        else
+            t_next = t_remain
+            update_positions!(puck, mallet1, mallet2, t_next) #przewiń do końca dt
         end
         t_remain -= t_next # zmniejsz pozostały czas o czas już zhandlowany
     end
@@ -173,8 +184,8 @@ function step!(env::AirHockeyEnv, action1::Action, action2::Action)
     env.state.agent1.v .+= convert_from_polar_to_cartesian(action1.dv_len, action1.dv_angle)
     env.state.agent2.v .+= convert_from_polar_to_cartesian(action2.dv_len, action2.dv_angle)
     simulate_dt!(env)
-    
-   
+    if is_terminated(env); reset!(env) end
+
 end
 
 is_terminated(env::AirHockeyEnv) = env.done

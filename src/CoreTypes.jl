@@ -21,7 +21,7 @@ Base.@kwdef struct EnvParams{T <: Real}
     agent1_initial_pos::Vector{T}
     agent2_initial_pos::Vector{T}
     dt::T
-    terminal_velo::T
+    max_dv::T
     band_e_loss::T
     restitution::T
     puck_mass::T
@@ -61,9 +61,21 @@ const COLLISIONS_MAPPING = Dict(
     7 => MalletWallCollision_Y(),
     8 => MalletWallCollision_Y()
 )
-struct Collision{T <: CollisionType, V <: Real} # teraz mogę robić multiple-dispatch ze względu na CollisionType
+mutable struct Collision{T <: CollisionType, V <: Real} # teraz mogę robić multiple-dispatch ze względu na CollisionType
     params::EnvParams{V}
     mid_state::State
     type::T
+    is_goal::Bool
+    Collision(params::EnvParams{V}, mid_state::State, type::T)  where {T <: CollisionType, V <: Real} =
+        new{T, V}(params, mid_state, type, false)
 end
+
+abstract type Policy end
+struct RandomPolicy{V1,V2 <: Distribution} <: Policy
+    distribution_angle::V1
+    distribution_len::V2
+   
+
+end
+
 

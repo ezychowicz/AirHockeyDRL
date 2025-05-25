@@ -20,3 +20,19 @@ function solve_quadratic(a, b, c)
 end
 
 convert_from_polar_to_cartesian(r, θ) = Vector{Float32}([r * cos(θ), r * sin(θ)])
+
+function normalize_position(params::EnvParams, pos::Vector{T}) where {T <: Real}
+    """
+    Map position from [0, x_len] x [0, y_len] to [-1,1]²
+    """
+    x_len, y_len = params.x_len, params.y_len
+    return Vector{Float32}([clamp(2*pos[1]/x_len - 1, -1, 1), clamp(2*pos[2]/y_len - 1, -1, 1)])
+end
+
+function normalize_action(params::EnvParams, action::Action)
+    """
+    Map action from [-π, π] x [0, max_dv] to [-1,1]²
+    """
+    max_dv = params.max_dv
+    return Vector{Float32}([clamp(action.dv_angle/π, -1, 1), clamp(-1 + 2*action.dv_len/max_dv, -1, 1)])
+end

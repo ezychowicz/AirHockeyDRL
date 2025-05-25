@@ -6,6 +6,9 @@ function handle_collision!(collision::Collision{PuckWallCollision_X, V}) where {
     puck = collision.mid_state.puck
     e = collision.params.band_e_loss # energy loss coefficient
     puck.v[1] = -e*puck.v[1] 
+    if (collision.params.y_len/2 + collision.params.goal_width/2 > puck.pos[2] > collision.params.y_len/2 - collision.params.goal_width/2)
+        collision.is_goal = true
+    end
 end
 
 function handle_collision!(collision::Collision{PuckWallCollision_Y, V}) where {V<:Real}
@@ -28,6 +31,7 @@ end
 
 function handle_collision!(collision::Collision{PuckMalletCollision, V}) where {V<:Real}
     C = collision.params.restitution
+    puck = collision.mid_state.puck
     mallet1, mallet2 = collision.mid_state.agent1, collision.mid_state.agent2
     mallet = !isnothing(mallet1) ? mallet1 : mallet2
     # zbudujmy bazę wektorów, gdzie jeden jest w kierunku środków obiektów, drugi prostopadły
@@ -48,7 +52,14 @@ function handle_collision!(collision::Collision{PuckMalletCollision, V}) where {
 
     mallet.v = zeros(Float32, 2)
 
-    v_normal_puck = (C*mallet_mass*(v_mallet[1] - v_puck[1]) + mallet_mass*v_mallet[1] + puck_mass*v_puck[1])/(mallet_mass + puck_mass)
+    u1 = v_mallet[1]
+    u2 = v_puck[1]
+    m1 = mallet_mass
+    m2 = puck_mass
+
+    v_normal_puck = (m1*u1 + m2*u2 + m1*C*(u1 - u2)) / (m1 + m2)
+
     v_puck[1] = v_normal_puck # zaktualizowana składowa normalna 
     @. puck.v = base1*v_puck[1] + base2*v_puck[2] # kombinacja liniowa w 
+    println("nowe v:$(puck.v) $(puck.pos)")
 end
