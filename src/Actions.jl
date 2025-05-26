@@ -8,7 +8,7 @@ end
 
 function action(env::AirHockeyEnv, p::ActorPolicy)
     state = env.state
-    action = p.actor(state_to_input(env, state)) .+ rand(p.distribution)
+    action = p.actor.model(state_to_input(env, state)) .+ rand(p.noise)
     clamp.(action, -1, 1)
     return output_to_action(env, action)
 end

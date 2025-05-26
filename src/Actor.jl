@@ -7,7 +7,7 @@ function state_to_input(env::AirHockeyEnv, state::State)
         )
 end
 
-function output_to_action(env::AirHockeyEnv, output::Vector{Float32})
+function output_to_action(env::AirHockeyEnv, output::Vector{V}) where {V <: Real}
     """
     Map NN output from [-1,1]² to Action [-π, π] x [0, max_dv] 
     """

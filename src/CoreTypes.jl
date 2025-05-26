@@ -77,22 +77,24 @@ struct RandomPolicy{V1,V2 <: Distribution} <: Policy
     distribution_len::V2
 end
   
-struct ActorPolicy{V <: Distribution} 
-    actor::NN
-    noise::V
-end
-
-mutable struct NN{T <: Function}
+mutable struct NN
     model::Chain
     optimizer::Adam
     target::Chain
 end
 
-struct Experience{T,V} where {T,V <: Real}
+
+struct ActorPolicy{V <: Distribution} 
+    actor::NN
+    noise::V
+end
+
+
+struct Experience{T,V <: Real}
     s::Vector{T}
     a::Vector{V}
     r::Float32
-    s'::Vector{T}
+    s_next::Vector{T}
     d::Int64
 end
 

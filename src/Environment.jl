@@ -15,12 +15,12 @@ function reward(env::AirHockeyEnv)
     Zwraca nagrodę obu agentom. 
     Agent 1 dostaje 1.0, gdy padł gol i krążek jest na połowie przeciwnika.
     """
-    if env.done && env.state.puck.pos[1] > x_len/2
-       return 1.0, -1.0
+    if env.done && env.state.puck.pos[1] > env.params.x_len/2
+       return 1.0f0, -1.0f0
     elseif env.done
-        return -1.0, 1.0
+        return -1.0f0, 1.0f0
     end
-    return 0.0, 0.0
+    return 0.0f0, 0.0f0
 end
 
 function time_to_wall(env::AirHockeyEnv, puck::Puck) 
@@ -158,7 +158,7 @@ function simulate_dt!(env::AirHockeyEnv)
         # Znajdź najbliższe zdarzenie - UWAGA: tak naprawdę tylko ten pierwszy czas jest zawsze prawdziwy.
         # Obliczone czasy nie uwzględniają  bowiem zderzenia, które się wydarzy w minimum z tych czasów.
         # println(times)
-        # times = [tx, ty, tm1, tm2, tm1_to_wallx, tm2_to_wallx, tm1_to_wally, tm2_to_wally]
+        times = [tx, ty, tm1, tm2, tm1_to_wallx, tm2_to_wallx, tm1_to_wally, tm2_to_wally]
         t_next, idx = findmin(times)
 
         
@@ -198,9 +198,9 @@ function step!(env::AirHockeyEnv, action1::Action, action2::Action)
     env.state.agent1.v .+= convert_from_polar_to_cartesian(action1.dv_len, action1.dv_angle)
     env.state.agent2.v .+= convert_from_polar_to_cartesian(action2.dv_len, action2.dv_angle)
     simulate_dt!(env)
-    r1, r2, s', d = reward(env)..., copy(env.state), copy(is_terminated(env))
+    r1, r2, s_next, d = reward(env)..., deepcopy(env.state), deepcopy(is_terminated(env))
     if is_terminated(env); reset!(env) end
-    return r1, r2, s', d
+    return r1, r2, s_next, d
 end
 
 is_terminated(env::AirHockeyEnv) = env.done
