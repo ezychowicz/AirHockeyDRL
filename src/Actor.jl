@@ -15,12 +15,15 @@ function output_to_action(env::AirHockeyEnv, output::Vector{V}) where {V <: Real
     Action(output[1]*π, (output[2] + 1)/2*max_dv)
 end
 
-function init_actor()
+function make_actor_model()
     actor = Chain(
         Dense(6, 64, relu), # Wejście: Wektor stanu
         Dense(64, 64, relu),
         Dense(64, 2, tanh)   # Wyjście: [-1,1]²
     )
+end
+function init_actor()
+    actor = make_actor_model()
     optimizer_actor = ADAM(1e-3)
     actor_target = deepcopy(actor)
     NN(actor, optimizer_actor, actor_target)

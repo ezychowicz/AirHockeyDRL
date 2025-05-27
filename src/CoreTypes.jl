@@ -1,6 +1,6 @@
 export Object, Puck, Mallet, EnvParams, AirHockeyEnv, State, Action, CollisionType, Collision, COLLISIONS_MAPPING, 
     PuckWallCollision_X, PuckWallCollision_Y, MalletWallCollision_X, MalletWallCollision_Y, PuckMalletCollision, Policy,
-    RandomPolicy, ActorPolicy, NN, Experience
+    RandomPolicy, ActorPolicy, NN, Experience, LearntPolicy
 
 abstract type Object end
 mutable struct Puck <: Object
@@ -84,11 +84,14 @@ mutable struct NN
 end
 
 
-struct ActorPolicy{V <: Distribution} 
+struct ActorPolicy{V <: Distribution} <: Policy
     actor::NN
     noise::V
 end
 
+struct LearntPolicy <: Policy
+    model::Chain
+end
 
 struct Experience{T,V <: Real}
     s::Vector{T}

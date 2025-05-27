@@ -40,9 +40,9 @@ function simulate_dt!(env::AirHockeyEnv)
         # Znajdź najbliższe zdarzenie - UWAGA: tak naprawdę tylko ten pierwszy czas jest zawsze prawdziwy.
         # Obliczone czasy nie uwzględniają  bowiem zderzenia, które się wydarzy w minimum z tych czasów.
         times = [tx, ty, tm1, tm2, tm1_to_wallx, tm2_to_wallx, tm1_to_wally, tm2_to_wally]
-        # print("min_time=$(min(times...)) ")
+        
         t_next, idx = findmin(times)
-
+        # print("min_time=$(t_next) idx=$(idx) t_remain = $(t_remain)")
         
 
         if t_next != Inf # doszło do kolizji
@@ -55,6 +55,7 @@ function simulate_dt!(env::AirHockeyEnv)
         push!(trace.puck_trace, deepcopy(puck))
         push!(trace.mallet1_trace, mallet1 !== nothing ? deepcopy(mallet1) : Mallet(Vector{V}(),Vector{V}()))
         push!(trace.mallet2_trace, mallet2 !== nothing ? deepcopy(mallet2) : Mallet(Vector{V}(),Vector{V}()))
+        
         push!(trace.times, t_next)
         t_remain -= t_next # zmniejsz pozostały czas o czas już zhandlowany
     end

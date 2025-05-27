@@ -12,3 +12,10 @@ function action(env::AirHockeyEnv, p::ActorPolicy)
     clamp.(action, -1, 1)
     return output_to_action(env, action)
 end
+
+function action(env::AirHockeyEnv, p::LearntPolicy)
+    state = env.state
+    action = p.model(state_to_input(env, state)) 
+    clamp.(action, -1, 1)
+    return output_to_action(env, action)
+end
