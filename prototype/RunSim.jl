@@ -26,10 +26,12 @@ function simulate(env::AirHockeyEnv)
     puck_states = Vector{AirHockey.Puck}()
     mallet1_states = Vector{AirHockey.Mallet}()
     mallet2_states = Vector{AirHockey.Mallet}()
-    times_cumul = Vector{Float32}()
+    time_diffs = Vector{Float32}()
+    result_states = Vector{Union{Bool, Nothing}}()
     push!(puck_states, deepcopy(env.state.puck))
     push!(mallet1_states, deepcopy(env.state.agent1))
     push!(mallet2_states, deepcopy(env.state.agent2))
+    push!(result_states, nothing)
     for _ ∈ 1:5000
         # Tutaj agent wykonuje akcje
         action1 = AirHockey.action(env, policy1)
@@ -37,12 +39,13 @@ function simulate(env::AirHockeyEnv)
         # action1 = AirHockey.Action(0.0f0,0.0f0)
         # action2 = AirHockey.Action(0.0f0,0.0f0)
         trace = TracedEnv.step!(env, action1, action2)  
-        append!(times_cumul, trace.times)
+        append!(time_diffs, trace.times)
         append!(puck_states, trace.puck_trace)
         append!(mallet1_states, trace.mallet1_trace)
         append!(mallet2_states, trace.mallet2_trace)
+        append!(result_states, trace.result)
     end
-    puck_states, mallet1_states, mallet2_states, times_cumul
+    puck_states, mallet1_states, mallet2_states, time_diffs, result_states
 end
 
 # === INICJALIZACJA === #

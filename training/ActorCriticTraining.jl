@@ -44,8 +44,8 @@ function train(num_episodes)
 
         # Po 10000 kroków ucz się co update_freq 
         if start_learning && ep % update_freq == r
-            update_NNs!(policy1.actor, critic1, replay_buff1; samples = 10)
-            update_NNs!(policy2.actor, critic2, replay_buff2; samples = 10)
+            update_NNs!(policy1.actor, critic1, replay_buff1; samples = 128)
+            update_NNs!(policy2.actor, critic2, replay_buff2; samples = 128)
         end
     end
     save_models(policy1.actor.model, policy2.actor.model)
@@ -53,7 +53,7 @@ end
 
 function update_NNs!(
     actor::NN, critic::NN, replay_buff::CircularBuffer{Experience};
-    samples::Int64 = 10, γ = 0.99, ρ = 0.95)
+    samples::Int64 = 10, γ = 0.99, ρ = 0.99)
 
     batch = rand(replay_buff, samples)
 
@@ -69,16 +69,22 @@ function update_NNs!(
     target_q = critic.target(critic_input_next)
     target_ys = transpose(rewards) .+ γ .* (1 .- transpose(dones)) .* target_q
 
-    loss(nn_out, expected_out) = Flux.Losses.mse(nn_out, expected_out) 
+    function loss(nn_out, expected_out)
+        loss_val = Flux.Losses.mse(nn_out, expected_out)
+        # println("Critic loss:$loss_val")
+        loss_val
+    end
     train_set = [(s_a_inputs, target_ys)]
     opt_state1 = Flux.setup(critic.optimizer, critic.model)
     Flux.train!((m, x, y) -> loss(m(x), y), critic.model, train_set, opt_state1) 
 
     # gradient ascent na wartości oczekiwanej Q stanów s z batcha
-    function actor_loss(ins) 
+    function actor_loss(ins)         
         actor_actions = actor.model(ins)
         # dodaj do wektorów s akcje z polityki (stwórz wejścia do Q)
         critic_inputs = vcat(ins, actor_actions)
+        loss_val = -mean(critic.model(critic_inputs))
+        # println("Actor loss:$loss_val")
         return -mean(critic.model(critic_inputs))
     end
     train_set = [(ss, nothing)]
@@ -121,16 +127,19 @@ function train_with_visualization(num_episodes)
     puck_states = Vector{AirHockey.Puck}()
     mallet1_states = Vector{AirHockey.Mallet}()
     mallet2_states = Vector{AirHockey.Mallet}()
-    times_cumul = Vector{Float32}()
+    time_diffs = Vector{Float32}()
+    result_states = Vector{Union{Bool, Nothing}}()
     push!(puck_states, deepcopy(env.state.puck))
     push!(mallet1_states, deepcopy(env.state.agent1))
     push!(mallet2_states, deepcopy(env.state.agent2))
-
+    push!(result_states, nothing)
     for ep ∈ 1:num_episodes
         a1 = AirHockey.action(env, policy1)
         a2 = AirHockey.action(env, policy2)
         s = deepcopy(env.state)
+        env_freeze = deepcopy(env) # poniżej robimy krok w srodowisku uczącym, a potrzebujemy zrobić ten sam krok w środowisku rejestrującym potem
         r1, r2, s_next, d = AirHockey.step!(env, a1, a2)
+        
         push!(replay_buff1, parse_experience(s,a1,r1,s_next,d))
         push!(replay_buff2, parse_experience(s,a2,r2,s_next,d))
         # Pierwsze 10000 kroków nie ucz się
@@ -146,14 +155,15 @@ function train_with_visualization(num_episodes)
         end
 
 
-        trace = TracedEnv.step!(env, a1, a2)  
-        append!(times_cumul, trace.times)
+        trace = TracedEnv.step!(env_freeze, a1, a2)  
+        append!(time_diffs, trace.times)
         append!(puck_states, trace.puck_trace)
         append!(mallet1_states, trace.mallet1_trace)
         append!(mallet2_states, trace.mallet2_trace)
-    
+        append!(result_states, trace.result)
     end
-    puck_states, mallet1_states, mallet2_states, times_cumul
+    # println(result_states)
+    puck_states, mallet1_states, mallet2_states, time_diffs, result_states
 end
 
 params = AirHockey.EnvParams(  
@@ -183,8 +193,8 @@ AirHockey.reset!(env)
 
 
 
-train(100000)
+# train(100000)
 
-# push!(LOAD_PATH, joinpath(@__DIR__, "..", "prototype"))
-# using Visualize
-# visualize(env.params, train_with_visualization(11000)...)
+push!(LOAD_PATH, joinpath(@__DIR__, "..", "prototype"))
+using Visualize
+visualize(env.params, train_with_visualization(11000)...)

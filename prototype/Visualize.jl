@@ -7,16 +7,20 @@ using GLMakie
 using AirHockey  
 include("TracedEnv.jl")
 using .TracedEnv
-
-function update_axis!(xy_puck::Observable, xy_mallet12::Observable, axis::Axis; coords::NTuple{6,V}, t::Float64) where {V <: Real}
+using StaticArrays
+function update_axis!(xy_puck::Observable, xy_mallet12::Observable, score::Observable, axis::Axis, score_vec::Vector{Int64}; coords::NTuple{6,V}, t::Float64) where {V <: Real}
     """
     Aktualizuj Observable i tytuł osi.
     """
     x,y,x_m1,y_m1,x_m2,y_m2 = coords
     xy_puck[] = [Point2f(x, y)]
     xy_mallet12[] = [Point2f(x_m1, y_m1),Point2f(x_m2, y_m2)]
+    score[] = score_vec
+    # println("score $(score) a score_vec: $(score_vec)")
+
     axis.title[] = "Czas: $(round(t, digits=2)) s"
 end
+
 
 function interpolate(idx::Int64, k::Float64, puck_xs::Vector{V}, puck_ys::Vector{V}, mallet1_xs::Vector{V}, mallet1_ys::Vector{V}, mallet2_xs::Vector{V}, mallet2_ys::Vector{V}) where {V<:Real}
     x = puck_xs[idx] + (puck_xs[idx+1] - puck_xs[idx]) * k
@@ -28,12 +32,36 @@ function interpolate(idx::Int64, k::Float64, puck_xs::Vector{V}, puck_ys::Vector
     (x,y,x_m1,y_m1,x_m2,y_m2)
 end
 
-function visualize(params::EnvParams, puck_states::Vector{Puck}, mallet1_states::Vector{Mallet}, mallet2_states::Vector{Mallet}, time_diffs::Vector{Float32})
+function scores(results::Vector{Union{Nothing, Bool}})
+    """
+    Zamień strumień sygnałów: nothing, true, false na macierz wyników (n x 2). (taki cumsum)
+    """
+    curr_score = Int64[0,0]
+    scores = zeros(Int64, 2, length(results))
+    for i in eachindex(results)
+        if !isnothing(results[i])
+            curr_score .+= [!results[i], results[i]]
+        end
+        scores[:, i] .= curr_score
+    end
+    println(scores)
+    return scores
+    
+end
+
+
+function visualize(params::EnvParams, puck_states::Vector{Puck}, mallet1_states::Vector{Mallet}, mallet2_states::Vector{Mallet}, time_diffs::Vector{Float32}, results::Vector{Union{Nothing, Bool}})
     valid_indices = findall(t -> t > 0, time_diffs)
     puck_states = puck_states[valid_indices]
     mallet1_states = mallet1_states[valid_indices]
     mallet2_states = mallet2_states[valid_indices]
     time_diffs = time_diffs[valid_indices]
+    results = results[valid_indices]
+
+
+    println("$(length(results)), $(length(puck_states))")
+    non_nothings = filter(!isnothing, results)
+    println("gole: $(non_nothings)")
 
     puck_positions = map(puck -> puck.pos, puck_states)
     puck_xs = map(x -> x[1], puck_positions)
@@ -42,7 +70,8 @@ function visualize(params::EnvParams, puck_states::Vector{Puck}, mallet1_states:
     mallet2_positions = map(mallet -> mallet.pos, mallet2_states)
     mallet1_xs, mallet1_ys = map(x -> x[1], mallet1_positions), map(x -> x[2], mallet1_positions)
     mallet2_xs, mallet2_ys = map(x -> x[1], mallet2_positions), map(x -> x[2], mallet2_positions)
-
+    scores_matrix = scores(results)
+    
     t_values = cumsum([0.0; time_diffs]) # t_values - realne czasy danych stanów
     total_time = sum(time_diffs)
 
@@ -73,8 +102,12 @@ function visualize(params::EnvParams, puck_states::Vector{Puck}, mallet1_states:
 
     xy_puck = Observable([Point2f(puck_xs[1], puck_ys[1])])
     xy_mallet12 = Observable([Point2f(mallet1_xs[1], mallet1_ys[1]), Point2f(mallet2_xs[1], mallet2_ys[1])])
+    score = Observable([0, 0])
+
     scatter_puck = GLMakie.scatter!(axis, xy_puck; color = :red, markersize = 20*params.puck_radius)
     scatter_mallets = GLMakie.scatter!(axis, xy_mallet12; color = :blue, markersize = 20*params.mallet_radius)
+    score_text = GLMakie.text!(axis,  @lift(string($(score)[1], " : ", $(score)[2])),  align = (:center, :center), position = Point2f(params.x_len/2, params.y_len-5), fontsize = 30) #@lift(string($(score)[][1], " : ", $(score)[][2])) lift sprawia 
+
     display(scene)
 
     # --- Główna pętla animacji --- #
@@ -89,7 +122,7 @@ function visualize(params::EnvParams, puck_states::Vector{Puck}, mallet1_states:
             Δt = t - t_values[idx] # ile minęło od ostatniego stanu o którym mamy info
             segment_time = time_diffs[idx]
             coords = interpolate(idx, Δt/segment_time, puck_xs, puck_ys, mallet1_xs, mallet1_ys, mallet2_xs, mallet2_ys)
-            update_axis!(xy_puck, xy_mallet12, axis; coords = coords, t = t)
+            update_axis!(xy_puck, xy_mallet12, score, axis, scores_matrix[:, idx]; coords = coords, t = t)
             sleep(1/60)
         end
     end
