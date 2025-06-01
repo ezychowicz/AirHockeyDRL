@@ -129,17 +129,18 @@ function train_with_visualization(num_episodes)
     mallet2_states = Vector{AirHockey.Mallet}()
     time_diffs = Vector{Float32}()
     result_states = Vector{Union{Bool, Nothing}}()
+    rewards_states = Vector{Vector{Float64}}()
     push!(puck_states, deepcopy(env.state.puck))
     push!(mallet1_states, deepcopy(env.state.agent1))
     push!(mallet2_states, deepcopy(env.state.agent2))
     push!(result_states, nothing)
+    push!(rewards_states, Float32[0,0])
     for ep ∈ 1:num_episodes
         a1 = AirHockey.action(env, policy1)
         a2 = AirHockey.action(env, policy2)
         s = deepcopy(env.state)
         env_freeze = deepcopy(env) # poniżej robimy krok w srodowisku uczącym, a potrzebujemy zrobić ten sam krok w środowisku rejestrującym potem
         r1, r2, s_next, d = AirHockey.step!(env, a1, a2)
-        
         push!(replay_buff1, parse_experience(s,a1,r1,s_next,d))
         push!(replay_buff2, parse_experience(s,a2,r2,s_next,d))
         # Pierwsze 10000 kroków nie ucz się
@@ -161,9 +162,10 @@ function train_with_visualization(num_episodes)
         append!(mallet1_states, trace.mallet1_trace)
         append!(mallet2_states, trace.mallet2_trace)
         append!(result_states, trace.result)
+        append!(rewards_states, trace.rewards)
     end
     # println(result_states)
-    puck_states, mallet1_states, mallet2_states, time_diffs, result_states
+    puck_states, mallet1_states, mallet2_states, time_diffs, result_states, rewards_states
 end
 
 params = AirHockey.EnvParams(  
