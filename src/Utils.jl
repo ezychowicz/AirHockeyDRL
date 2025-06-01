@@ -36,3 +36,4 @@ function normalize_action(params::EnvParams, action::Action)
     max_dv = params.max_dv
     return Vector{Float32}([clamp(action.dv_angle/π, -1, 1), clamp(-1 + 2*action.dv_len/max_dv, -1, 1)])
 end
+

@@ -61,5 +61,5 @@ function handle_collision!(collision::Collision{PuckMalletCollision, V}) where {
 
     v_puck[1] = v_normal_puck # zaktualizowana składowa normalna 
     @. puck.v = base1*v_puck[1] + base2*v_puck[2] # kombinacja liniowa w 
-    println("nowe v:$(puck.v) $(puck.pos)")
+    # println("nowe v:$(puck.v) $(puck.pos)")
 end

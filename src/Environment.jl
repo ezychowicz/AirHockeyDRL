@@ -5,9 +5,39 @@ function reset!(env::AirHockeyEnv)
         agent1 = Mallet(zeros(Float32, 2), env.params.agent1_initial_pos),
         agent2 = Mallet(zeros(Float32, 2), env.params.agent2_initial_pos),
         puck = Puck(zeros(Float32, 2), [env.params.x_len/2, env.params.y_len/2])
+        # puck = Puck(Float32[15.0f0, 20.0f0], [env.params.x_len/2, env.params.y_len/2])
     )
     env.done = false
     return env
+end
+
+function reward(env::AirHockeyEnv)
+    """
+    Zwraca nagrodę obu agentom. 
+    Agent 1 dostaje 1.0, gdy padł gol i krążek jest na połowie przeciwnika.
+    """
+    if env.done && env.state.puck.pos[1] > env.params.x_len/2
+       return 1.0f0, -1.0f0
+    elseif env.done
+        return -1.0f0, 1.0f0
+    end
+    x_len, puck_r, agent_r = env.params.x_len, env.params.puck_radius, env.params.mallet_radius
+    puck_pos = env.state.puck.pos
+    mallet1_pos, mallet2_pos = env.state.agent1.pos, env.state.agent2.pos
+    function distance_reward(pos1, pos2)
+        dist = norm(pos1 .- pos2)
+        dist < 0.4*x_len ? Float32(0.3*(puck_r+agent_r)/dist) : -0.05f0
+    end
+
+    if env.state.puck.pos[1] < x_len/2 - 0.01 
+        return distance_reward(puck_pos, mallet1_pos), 0.1f0
+    elseif env.state.puck.pos[1] > x_len/2 - 0.01
+        return 0.1f0, distance_reward(puck_pos, mallet2_pos)
+    else
+        return 
+            distance_reward(puck_pos, mallet1_pos),
+            distance_reward(puck_pos, mallet2_pos)
+    end
 end
 
 function time_to_wall(env::AirHockeyEnv, puck::Puck) 
@@ -128,8 +158,10 @@ function execute_collision!(env::AirHockeyEnv, idx::Int)
     if coll.is_goal
         env.done = true
     end
-    ϵ = 1e-1
-    puck.pos += puck.v * ϵ # przesuń trochę zgodnie z nową prędkością - żeby nie wykryło dugi raz tej samej kolizji
+    # if idx <= 4 # przy zderzeniach z udziałem krążka
+    #     ϵ = 1e-1
+    #     puck.pos += puck.v * ϵ # przesuń trochę zgodnie z nową prędkością - żeby nie wykryło dugi raz tej samej kolizji
+    # end
 end
 
 function simulate_dt!(env::AirHockeyEnv)
@@ -145,7 +177,7 @@ function simulate_dt!(env::AirHockeyEnv)
         # Znajdź najbliższe zdarzenie - UWAGA: tak naprawdę tylko ten pierwszy czas jest zawsze prawdziwy.
         # Obliczone czasy nie uwzględniają  bowiem zderzenia, które się wydarzy w minimum z tych czasów.
         # println(times)
-        # times = [tx, ty, tm1, tm2, tm1_to_wallx, tm2_to_wallx, tm1_to_wally, tm2_to_wally]
+        times = [tx, ty, tm1, tm2, tm1_to_wallx, tm2_to_wallx, tm1_to_wally, tm2_to_wally]
         t_next, idx = findmin(times)
 
         
@@ -159,6 +191,7 @@ function simulate_dt!(env::AirHockeyEnv)
         t_remain -= t_next # zmniejsz pozostały czas o czas już zhandlowany
     end
 end
+
 
 function step!(env::AirHockeyEnv, action1::Action, action2::Action)
     """
@@ -184,8 +217,10 @@ function step!(env::AirHockeyEnv, action1::Action, action2::Action)
     env.state.agent1.v .+= convert_from_polar_to_cartesian(action1.dv_len, action1.dv_angle)
     env.state.agent2.v .+= convert_from_polar_to_cartesian(action2.dv_len, action2.dv_angle)
     simulate_dt!(env)
-    if is_terminated(env); reset!(env) end
-
+    r1, r2, s_next, d = reward(env)..., deepcopy(env.state), deepcopy(is_terminated(env))
+    if is_terminated(env); reset!(env);println("GOL") end
+    
+    return r1, r2, s_next, d
 end
 
 is_terminated(env::AirHockeyEnv) = env.done
