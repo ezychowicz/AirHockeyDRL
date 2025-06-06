@@ -15,30 +15,42 @@ function reward(env::AirHockeyEnv)
     """
     Zwraca nagrodę obu agentom. 
     Agent 1 dostaje 1.0, gdy padł gol i krążek jest na połowie przeciwnika.
+    Dodatkowe shaping rewards za zbliżenie się do krążka.
     """
-    if env.done && env.state.puck.pos[1] > env.params.x_len/2
-       return 1.0f0, -1.0f0
+    if env.done && env.state.puck.pos[1] > env.params.x_len / 2
+        return 1.0f0, -1.0f0
     elseif env.done
         return -1.0f0, 1.0f0
     end
-    x_len, puck_r, agent_r = env.params.x_len, env.params.puck_radius, env.params.mallet_radius
+
+    x_len = env.params.x_len
+    puck_r = env.params.puck_radius
+    agent_r = env.params.mallet_radius
     puck_pos = env.state.puck.pos
-    mallet1_pos, mallet2_pos = env.state.agent1.pos, env.state.agent2.pos
+    mallet1_pos = env.state.agent1.pos
+    mallet2_pos = env.state.agent2.pos
+
     function distance_reward(pos1, pos2)
-        dist = norm(pos1 .- pos2)
-        dist < 0.4*x_len ? Float32(0.3*(puck_r+agent_r)/dist) : -0.05f0
+        dist = max(norm(pos1 .- pos2), 0.001f0)
+        base = dist < 0.35 * x_len ? Float32(1 * (puck_r + agent_r) / dist) : -0.0002f0
+        bonus = dist < 0.04 * x_len ? 0.1f0 * (1.0f0 - dist / (0.04f0 * x_len)) : 0.0f0
+        return Float32(base + bonus)
     end
 
-    if env.state.puck.pos[1] < x_len/2 - 0.01 
-        return distance_reward(puck_pos, mallet1_pos), 0.1f0
-    elseif env.state.puck.pos[1] > x_len/2 - 0.01
-        return 0.1f0, distance_reward(puck_pos, mallet2_pos)
+    if puck_pos[1] < x_len / 2 - 0.01 
+        return distance_reward(puck_pos, mallet1_pos), 0.0002f0
+    elseif puck_pos[1] > x_len / 2 + 0.01
+        return 0.0002f0, distance_reward(puck_pos, mallet2_pos)
     else
-        return 
-            distance_reward(puck_pos, mallet1_pos),
+        return (
+            distance_reward(puck_pos, mallet1_pos), 
             distance_reward(puck_pos, mallet2_pos)
+        )
     end
 end
+
+
+
 
 function time_to_wall(env::AirHockeyEnv, puck::Puck) 
     """

@@ -86,8 +86,9 @@ end
 
 struct ActorPolicy{V <: Distribution} <: Policy
     actor::NN
-    noise::V
+    noise::V # UWAGA: noise to rozkład odnoszący się do KARTEZJAŃSKICH współrzędnych wektora dv. I to zdenormalizowanych
 end
+
 
 struct LearntPolicy <: Policy
     model::Chain

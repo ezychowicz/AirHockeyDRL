@@ -1,3 +1,4 @@
+using Base.Math: atan
 function solve_quadratic(a, b, c)
     if isapprox(a, 0; atol=0, rtol=sqrt(eps(Float64)))
         # Równanie liniowe: bx + c = 0
@@ -20,7 +21,7 @@ function solve_quadratic(a, b, c)
 end
 
 convert_from_polar_to_cartesian(r, θ) = Vector{Float32}([r * cos(θ), r * sin(θ)])
-
+convert_from_cartesian_to_polar(x, y) = Vector{Float32}([atan(y, x), sqrt(x^2 + y^2)])
 function normalize_position(params::EnvParams, pos::Vector{T}) where {T <: Real}
     """
     Map position from [0, x_len] x [0, y_len] to [-1,1]²
@@ -29,6 +30,7 @@ function normalize_position(params::EnvParams, pos::Vector{T}) where {T <: Real}
     return Vector{Float32}([clamp(2*pos[1]/x_len - 1, -1, 1), clamp(2*pos[2]/y_len - 1, -1, 1)])
 end
 
+
 function normalize_action(params::EnvParams, action::Action)
     """
     Map action from [-π, π] x [0, max_dv] to [-1,1]²
@@ -36,4 +38,14 @@ function normalize_action(params::EnvParams, action::Action)
     max_dv = params.max_dv
     return Vector{Float32}([clamp(action.dv_angle/π, -1, 1), clamp(-1 + 2*action.dv_len/max_dv, -1, 1)])
 end
+
+function denormalize_action(params::EnvParams, vec::Vector{Float32})
+    """
+    Map action from [-1,1]² back to [-π, π] x [0, max_dv]
+    """
+    max_dv = params.max_dv
+
+    return Float32[vec[1]*π, (vec[2] + 1)/2*max_dv]
+end
+
 

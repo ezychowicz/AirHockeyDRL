@@ -3,7 +3,7 @@
 function state_to_input(env::AirHockeyEnv, state::State)
     vcat(normalize_position(env.params, state.puck.pos),
         normalize_position(env.params, state.agent1.pos),
-        normalize_position(env.params, state.agent2.pos),
+        normalize_position(env.params, state.agent2.pos)
         )
 end
 

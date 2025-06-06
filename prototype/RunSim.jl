@@ -28,14 +28,17 @@ function simulate(env::AirHockeyEnv)
     mallet2_states = Vector{AirHockey.Mallet}()
     time_diffs = Vector{Float32}()
     result_states = Vector{Union{Bool, Nothing}}()
+    rewards_states = Vector{Vector{Float32}}()
     push!(puck_states, deepcopy(env.state.puck))
     push!(mallet1_states, deepcopy(env.state.agent1))
     push!(mallet2_states, deepcopy(env.state.agent2))
     push!(result_states, nothing)
+    # push!(rewards_states, Float32[0,0])
     for _ ∈ 1:5000
         # Tutaj agent wykonuje akcje
         action1 = AirHockey.action(env, policy1)
         action2 = AirHockey.action(env, policy2)
+        println(action1, action2)  # Czy są różne?
         # action1 = AirHockey.Action(0.0f0,0.0f0)
         # action2 = AirHockey.Action(0.0f0,0.0f0)
         trace = TracedEnv.step!(env, action1, action2)  
@@ -44,8 +47,10 @@ function simulate(env::AirHockeyEnv)
         append!(mallet1_states, trace.mallet1_trace)
         append!(mallet2_states, trace.mallet2_trace)
         append!(result_states, trace.result)
+        append!(rewards_states, trace.rewards)
     end
-    puck_states, mallet1_states, mallet2_states, time_diffs, result_states
+    
+    puck_states, mallet1_states, mallet2_states, time_diffs, result_states, rewards_states
 end
 
 # === INICJALIZACJA === #
@@ -71,7 +76,7 @@ agent2 = AirHockey.Mallet([0.0f0, 0.0f0], [95.0f0, 25.0f0])
 env = AirHockey.AirHockeyEnv(params, AirHockey.State(agent1, agent2, AirHockey.Puck([0.0f0, 0.0f0], [50.0f0, 25.0f0])), false)
 # w sumie to co wyzej bez znaczenia
 AirHockey.reset!(env)
-
+env.state.puck.v = [0.0f0, -1.0f0]
 
 
 visualize(env.params, simulate(env)...)

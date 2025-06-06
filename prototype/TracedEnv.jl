@@ -61,7 +61,7 @@ function simulate_dt!(env::AirHockeyEnv)
         push!(trace.mallet2_trace, mallet2 !== nothing ? deepcopy(mallet2) : Mallet(Vector{V}(),Vector{V}()))
         push!(trace.result, nothing)
         push!(trace.times, t_next)
-        push!(trace.rewards, Float64[0,0])
+        push!(trace.rewards, Float32[0,0])
         t_remain -= t_next # zmniejsz pozostały czas o czas już zhandlowany
     end
     return trace

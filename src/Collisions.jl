@@ -20,13 +20,17 @@ end
 function handle_collision!(collision::Collision{MalletWallCollision_X, V}) where {V<:Real}
     mallet1, mallet2 = collision.mid_state.agent1, collision.mid_state.agent2
     mallet = !isnothing(mallet1) ? mallet1 : mallet2
-    mallet.v = zeros(Float32, 2) # po prostu następuje zatrzymanie malleta przy zderzeniu
+    # mallet.v = zeros(Float32, 2) # po prostu następuje zatrzymanie malleta przy zderzeniu
+    e = collision.params.band_e_loss
+    mallet.v .= [0.0f0, mallet.v[2]]
 end
 
 function handle_collision!(collision::Collision{MalletWallCollision_Y, V}) where {V<:Real}
     mallet1, mallet2 = collision.mid_state.agent1, collision.mid_state.agent2
     mallet = !isnothing(mallet1) ? mallet1 : mallet2
-    mallet.v = zeros(Float32, 2) 
+    # mallet.v = zeros(Float32, 2) 
+    e = collision.params.band_e_loss
+    mallet.v .= [mallet.v[1], 0.0f0]
 end
 
 function handle_collision!(collision::Collision{PuckMalletCollision, V}) where {V<:Real}

@@ -45,24 +45,23 @@ function scores(results::Vector{Union{Nothing, Bool}})
         end
         scores[:, i] .= curr_score
     end
-    println(scores)
+    # println(scores)
     return scores
     
 end
 
 
-function visualize(params::EnvParams, puck_states::Vector{Puck}, mallet1_states::Vector{Mallet}, mallet2_states::Vector{Mallet}, time_diffs::Vector{Float32}, results::Vector{Union{Nothing, Bool}}, rewards::Vector{Vector{Float64}})
+function visualize(params::EnvParams, puck_states::Vector{Puck}, mallet1_states::Vector{Mallet}, mallet2_states::Vector{Mallet}, time_diffs::Vector{Float32}, results::Vector{Union{Nothing, Bool}}, rewards::Vector{Vector{Float32}})
     valid_indices = findall(t -> t > 0, time_diffs)
+    # println(rewards)
     puck_states = puck_states[valid_indices]
     mallet1_states = mallet1_states[valid_indices]
     mallet2_states = mallet2_states[valid_indices]
     time_diffs = time_diffs[valid_indices]
     results = results[valid_indices]
     rewards = rewards[valid_indices]
-
-    println("$(length(results)), $(length(puck_states))")
-    non_nothings = filter(!isnothing, results)
-    println("gole: $(non_nothings)")
+    # println(rewards)
+    
 
     puck_positions = map(puck -> puck.pos, puck_states)
     puck_xs = map(x -> x[1], puck_positions)
@@ -77,48 +76,6 @@ function visualize(params::EnvParams, puck_states::Vector{Puck}, mallet1_states:
     t_values = cumsum([0.0; time_diffs]) # t_values - realne czasy danych stanów
     total_time = sum(time_diffs)
 
-    # # --- Inicjalizacja wizualizacji --- #
-    # f = Figure(size = (600, 400), camera = campixel!)
-    # scene = Scene(size = (600, 400), camera = campixel!)
-    # axis = f[1,1] = Axis(scene;
-    #     limits = ((0, params.x_len), (0, params.y_len)),
-    #     xlabel = "x", ylabel = "y",
-    #     title = "Czas: 0.00 s"
-    # )
-
-    # # --- RYSOWANIE BRAMEK --- #
-    # goal_half = params.goal_width / 2
-    # center_y = params.y_len / 2
-    # goal_ymin = center_y - goal_half
-    # goal_ymax = center_y + goal_half
-
-
-    # lines!(axis, [0.0, 0.0], [goal_ymin, goal_ymax], color = :green, linewidth = 10)
-
-    # lines!(axis, [params.x_len, params.x_len], [goal_ymin, goal_ymax], color = :green, linewidth = 10)
-
-    # # --- OBRAMOWANIE BOISKA --- #
-    # x_rect = [0.0, params.x_len, params.x_len, 0.0, 0.0]
-    # y_rect = [0.0, 0.0, params.y_len, params.y_len, 0.0]
-    # lines!(axis, x_rect, y_rect, color = :black, linewidth = 2)
-
-    # xy_puck = Observable([Point2f(puck_xs[1], puck_ys[1])])
-    # xy_mallet12 = Observable([Point2f(mallet1_xs[1], mallet1_ys[1]), Point2f(mallet2_xs[1], mallet2_ys[1])])
-    # score = Observable([0, 0])
-    # rewards = Observable(Float32[0,0])
-    # scatter_puck = GLMakie.scatter!(axis, xy_puck; color = :red, markersize = 20*params.puck_radius)
-    # scatter_mallets = GLMakie.scatter!(axis, xy_mallet12; color = :blue, markersize = 20*params.mallet_radius)
-    # score_text = GLMakie.text!(axis,  @lift(string($(score)[1], " : ", $(score)[2])),  align = (:center, :center), position = Point2f(params.x_len/2, params.y_len-5), fontsize = 30) # lift sprawia że ten napis nie jest statyczny
-    # # Dolny rząd — utwórz osobny pod-gridlayout o dwóch kolumnach
-    # inner = GridLayout()
-    # label_r_left  = Label(f, @lift("Reward 1: $(round($(rewards)[1], digits=2))"), halign = :left)
-    # label_r_right = Label(f, @lift("Reward 2: $(round($(rewards)[2], digits=2))"), halign = :right)
-    # inner[1, 1:2] = [label_r_left, label_r_right]
-    
-    # f.layout[1,1] = scene 
-    # f.layout[2,1] = inner
-
-    # display(f)
 # --- Inicjalizacja wizualizacji --- #
     f = Figure(size = (600, 400))
 
@@ -165,14 +122,14 @@ function visualize(params::EnvParams, puck_states::Vector{Puck}, mallet1_states:
     end
 
     label_r_left = Label(bottom[1, 1],
-        @lift("Reward 1: $(round($(rewards)[1], digits=2))"),
+        @lift("Reward 1: $(round($(rewards)[1], digits=5))"),
         color = @lift(reward_color($(rewards)[1])),
         halign = :left,
         fontsize = 20
     )
 
     label_r_right = Label(bottom[1, 2],
-        @lift("Reward 2: $(round($(rewards)[2], digits=2))"),
+        @lift("Reward 2: $(round($(rewards)[2], digits=5))"),
         color = @lift(reward_color($(rewards)[2])),
         halign = :right,
         fontsize = 20
