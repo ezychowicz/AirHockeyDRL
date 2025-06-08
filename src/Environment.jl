@@ -5,17 +5,54 @@ function reset!(env::AirHockeyEnv)
         agent1 = Mallet(zeros(Float32, 2), env.params.agent1_initial_pos),
         agent2 = Mallet(zeros(Float32, 2), env.params.agent2_initial_pos),
         puck = Puck(zeros(Float32, 2), [env.params.x_len/2, env.params.y_len/2])
-        # puck = Puck(Float32[15.0f0, 20.0f0], [env.params.x_len/2, env.params.y_len/2])
     )
     env.done = false
     return env
 end
 
+# function reward(env::AirHockeyEnv)
+#     """
+#     Zwraca nagrodę obu agentom. 
+#     Agent 1 dostaje 1.0, gdy padł gol i krążek jest na połowie przeciwnika.
+#     Dodatkowe shaping rewards za zbliżenie się do krążka.
+#     """
+#     if env.done && env.state.puck.pos[1] > env.params.x_len / 2
+#         return 1.0f0, -1.0f0
+#     elseif env.done
+#         return -1.0f0, 1.0f0
+#     end
+
+#     x_len = env.params.x_len
+#     puck_r = env.params.puck_radius
+#     agent_r = env.params.mallet_radius
+#     puck_pos = env.state.puck.pos
+#     mallet1_pos = env.state.agent1.pos
+#     mallet2_pos = env.state.agent2.pos
+
+#     function distance_reward(pos1, pos2)
+#         dist = max(norm(pos1 .- pos2), 0.001f0)
+#         base = dist < 0.35 * x_len ? Float32(0.05 * (puck_r + agent_r) / dist) : -0.0002f0
+#         bonus = dist < 0.04 * x_len ? 0.1f0 * (1.0f0 - dist / (0.04f0 * x_len)) : 0.0f0
+#         return Float32(base + bonus)
+#     end
+
+#     if puck_pos[1] < x_len / 2 - 0.01 
+#         return distance_reward(puck_pos, mallet1_pos), 0.0002f0
+#     elseif puck_pos[1] > x_len / 2 + 0.01
+#         return 0.0002f0, distance_reward(puck_pos, mallet2_pos)
+#     else
+#         return (
+#             distance_reward(puck_pos, mallet1_pos), 
+#             distance_reward(puck_pos, mallet2_pos)
+#         )
+#     end
+# end
+
 function reward(env::AirHockeyEnv)
     """
     Zwraca nagrodę obu agentom. 
     Agent 1 dostaje 1.0, gdy padł gol i krążek jest na połowie przeciwnika.
-    Dodatkowe shaping rewards za zbliżenie się do krążka.
+    Dodatkowe shaping rewards za zbliżenie się do krążka oraz karę za dotykanie ściany.
     """
     if env.done && env.state.puck.pos[1] > env.params.x_len / 2
         return 1.0f0, -1.0f0
@@ -24,6 +61,7 @@ function reward(env::AirHockeyEnv)
     end
 
     x_len = env.params.x_len
+    y_len = env.params.y_len
     puck_r = env.params.puck_radius
     agent_r = env.params.mallet_radius
     puck_pos = env.state.puck.pos
@@ -32,23 +70,33 @@ function reward(env::AirHockeyEnv)
 
     function distance_reward(pos1, pos2)
         dist = max(norm(pos1 .- pos2), 0.001f0)
-        base = dist < 0.35 * x_len ? Float32(1 * (puck_r + agent_r) / dist) : -0.0002f0
+        base = dist < 0.35 * x_len ? Float32(0.05 * (puck_r + agent_r) / dist) : -0.0002f0
         bonus = dist < 0.04 * x_len ? 0.1f0 * (1.0f0 - dist / (0.04f0 * x_len)) : 0.0f0
         return Float32(base + bonus)
     end
 
-    if puck_pos[1] < x_len / 2 - 0.01 
-        return distance_reward(puck_pos, mallet1_pos), 0.0002f0
+    r1 = if puck_pos[1] < x_len / 2 - 0.01
+        distance_reward(puck_pos, mallet1_pos)
     elseif puck_pos[1] > x_len / 2 + 0.01
-        return 0.0002f0, distance_reward(puck_pos, mallet2_pos)
+        0.0002f0
     else
-        return (
-            distance_reward(puck_pos, mallet1_pos), 
-            distance_reward(puck_pos, mallet2_pos)
-        )
+        distance_reward(puck_pos, mallet1_pos)
     end
-end
 
+    r2 = if puck_pos[1] > x_len / 2 + 0.01
+        distance_reward(puck_pos, mallet2_pos)
+    elseif puck_pos[1] < x_len / 2 - 0.01
+        0.0002f0
+    else
+        distance_reward(puck_pos, mallet2_pos)
+    end
+
+    # Dodanie kar za kolizje ze ścianą i nagordy za kolizje z krążkiem
+    r1 += clamp(env.step_acc_reward1, -0.2f0,0.4f0)
+    r2 += clamp(env.step_acc_reward2, -0.2f0,0.4f0)
+
+    return r1, r2
+end
 
 
 
@@ -157,7 +205,15 @@ function execute_collision!(env::AirHockeyEnv, idx::Int)
     if idx >= 3  
         mallet1 = idx % 2 == 1 ? mallet1 : nothing # posłuży jako informacja który mallet sie zderza
         mallet2 = idx % 2 == 0 ? mallet2 : nothing
+        env.step_acc_reward1 = idx == 3 ? env.step_acc_reward1 + 0.2f0 : env.step_acc_reward1 # uderzenie w krazek
+        env.step_acc_reward2 = idx == 4 ? env.step_acc_reward2 + 0.2f0 : env.step_acc_reward2
+        if idx > 4
+            # println("KURWA SCIANA")
+            env.step_acc_reward1 = idx % 2 == 1 ? env.step_acc_reward1 - 0.1f0 : env.step_acc_reward1 # uderzenie sobą o sciane
+            env.step_acc_reward2 = idx % 2 == 0 ? env.step_acc_reward2 - 0.1f0 : env.step_acc_reward2
+        end
     end
+    
     mid_state = State( # przekazujemy mid_state - stan w momencie kolizji (zmienił się na pewno względem stanu wejściowego i afterstatea)
         agent1 = mallet1, #przekaz wskazania/nothingi
         agent2 = mallet2,
@@ -226,8 +282,10 @@ function step!(env::AirHockeyEnv, action1::Action, action2::Action)
 
     # predkości zaraz po wykonaniu akcji (dodaniu dv do poprzednich wektorów predkości). 
     # Zmieniam stan enva na after_state - stan po wykonaniu akcji, ale przed stanem następnym
-    env.state.agent1.v .+= convert_from_polar_to_cartesian(action1.dv_len, action1.dv_angle)
-    env.state.agent2.v .+= convert_from_polar_to_cartesian(action2.dv_len, action2.dv_angle)
+    env.state.agent1.v .+= [action1.dvx, action1.dvy]
+    env.state.agent2.v .+= [action2.dvx, action2.dvy]
+    env.step_acc_reward1, env.step_acc_reward2 = 0.0f0, 0.0f0
+
     simulate_dt!(env)
     r1, r2, s_next, d = reward(env)..., deepcopy(env.state), deepcopy(is_terminated(env))
     if is_terminated(env); reset!(env);println("GOL") end

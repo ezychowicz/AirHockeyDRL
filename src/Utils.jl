@@ -22,30 +22,63 @@ end
 
 convert_from_polar_to_cartesian(r, θ) = Vector{Float32}([r * cos(θ), r * sin(θ)])
 convert_from_cartesian_to_polar(x, y) = Vector{Float32}([atan(y, x), sqrt(x^2 + y^2)])
-function normalize_position(params::EnvParams, pos::Vector{T}) where {T <: Real}
+function normalize_puck_position(params::EnvParams, pos::Vector{T}) where {T <: Real}
     """
-    Map position from [0, x_len] x [0, y_len] to [-1,1]²
+    Map position from [r_puck, x_len - r_puck] x [r_puck, y_len - r_puck] to [-1,1]² 
     """
     x_len, y_len = params.x_len, params.y_len
-    return Vector{Float32}([clamp(2*pos[1]/x_len - 1, -1, 1), clamp(2*pos[2]/y_len - 1, -1, 1)])
+    r = params.puck_radius
+
+    x_scaled = 2 * (pos[1] - r) / (x_len - 2r) - 1
+    y_scaled = 2 * (pos[2] - r) / (y_len - 2r) - 1
+
+    return clamp.(Float32[x_scaled, y_scaled], -1, 1)
 end
 
+function normalize_mallet_position(params::EnvParams, pos::Vector{T}) where {T <: Real}
+    """
+    Map mallet position from:
+    [r_mallet, x_len/2 - r_mallet] x [r_mallet, y_len - r_mallet] or
+    [x_len/2 + r_mallet, x_len - r_mallet] x [r_mallet, y_len - r_mallet] 
+    to [-1,1]²
+    """
+    x_len, y_len = params.x_len, params.y_len
+    r = params.mallet_radius
+
+    if pos[1] < x_len/2
+        # Lewa połowa: [r, x_len/2 - r]
+        x_scaled = 2 * (pos[1] - r) / (x_len/2 - 2r) - 1
+    else
+        # Prawa połowa: [x_len/2 + r, x_len - r]
+        x_scaled = 2 * (pos[1] - (x_len/2 + r)) / (x_len/2 - 2r) - 1
+    end
+
+    y_scaled = 2 * (pos[2] - r) / (y_len - 2r) - 1
+
+    return clamp.(Float32[x_scaled, y_scaled], -1, 1)
+end
 
 function normalize_action(params::EnvParams, action::Action)
     """
-    Map action from [-π, π] x [0, max_dv] to [-1,1]²
+    Map action from [-max_dvx, max_dvx] x [-max_dvy, max_dvy] to [-1,1]²
     """
-    max_dv = params.max_dv
-    return Vector{Float32}([clamp(action.dv_angle/π, -1, 1), clamp(-1 + 2*action.dv_len/max_dv, -1, 1)])
+    max_dvx, max_dvy = params.max_dvx, params.max_dvy
+    return clamp.(Float32[action.dvx/max_dvx, action.dvy/max_dvy], -1, 1)
 end
 
-function denormalize_action(params::EnvParams, vec::Vector{Float32})
+function denormalize_action(env::AirHockeyEnv, output::Vector{V}) where {V <: Real}
     """
-    Map action from [-1,1]² back to [-π, π] x [0, max_dv]
+    Map NN output from [-1,1]² to Vector [-max_dvx, max_dvx] x [-max_dvy, max_dvy]
     """
-    max_dv = params.max_dv
-
-    return Float32[vec[1]*π, (vec[2] + 1)/2*max_dv]
+    max_dvx, max_dvy = env.params.max_dvx, env.params.max_dvy
+    return Float32[output[1]*max_dvx, output[2]*max_dvy]
 end
 
-
+function normalize_velocity(params::EnvParams, vec::Vector{T}) where {T <: Real}
+    """
+    Map velocity from [-max_vxy, max_vxy]² to [-1,1]². 
+    Used to map object velocity to state NN input structure.
+    """
+    max_vxy = params.max_vxy
+    return clamp.(Float32[vec[1]/max_vxy, vec[2]/max_vxy], -1, 1)
+end

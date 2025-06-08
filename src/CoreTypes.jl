@@ -22,11 +22,14 @@ Base.@kwdef struct EnvParams{T <: Real}
     agent1_initial_pos::Vector{T}
     agent2_initial_pos::Vector{T}
     dt::T
-    max_dv::T
+    # max_dv::T
     band_e_loss::T
     restitution::T
     puck_mass::T
     mallet_mass::T
+    max_dvx::T
+    max_dvy::T
+    max_vxy::T
 end
 
 Base.@kwdef mutable struct State # kwdef helps with constructor
@@ -35,15 +38,17 @@ Base.@kwdef mutable struct State # kwdef helps with constructor
     puck::Puck
 end
 
-Base.@kwdef struct Action #to sa wspolrzedne biegunowe wektora dv
-    dv_angle::Float32 #kat: zakres [-pi, pi] 
-    dv_len::Float32 #dlugosc wektora
+Base.@kwdef struct Action
+    dvx::Float32  # składowa x wektora zmiany prędkości
+    dvy::Float32  # składowa y wektora zmiany prędkości
 end
 
 mutable struct AirHockeyEnv{T <: Real} 
     params::EnvParams{T}
     state::State
     done::Bool
+    step_acc_reward1::Float32 # zakumulowana nagroda za przebieg jednego dt (np. za odbicia)
+    step_acc_reward2::Float32
 end
 
 abstract type CollisionType end
@@ -73,14 +78,15 @@ end
 
 abstract type Policy end
 struct RandomPolicy{V1,V2 <: Distribution} <: Policy
-    distribution_angle::V1
-    distribution_len::V2
+    distribution_vx::V1
+    distribution_vy::V2
 end
   
 mutable struct NN
     model::Chain
     optimizer::Adam
     target::Chain
+    opt_state::NamedTuple
 end
 
 

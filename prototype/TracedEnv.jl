@@ -98,8 +98,9 @@ function step!(env::AirHockeyEnv, action1::Action, action2::Action)
 
     # predkości zaraz po wykonaniu akcji (dodaniu dv do poprzednich wektorów predkości). 
     # Zmieniam stan enva na after_state - stan po wykonaniu akcji, ale przed stanem następnym
-    env.state.agent1.v .+= AirHockey.convert_from_polar_to_cartesian(action1.dv_len, action1.dv_angle)
-    env.state.agent2.v .+= AirHockey.convert_from_polar_to_cartesian(action2.dv_len, action2.dv_angle)
+    env.state.agent1.v .+= [action1.dvx, action1.dvy]
+    env.state.agent2.v .+= [action2.dvx, action2.dvy]
+    env.step_acc_reward1, env.step_acc_reward2 = 0.0f0, 0.0f0
     trace = simulate_dt!(env)
     r1, r2 = AirHockey.reward(env)
     trace.rewards[end] .= [r1, r2] # zamień ostatnią nagrodę z zer na rzeczywistą (ten same sposób co z result w reset!)
