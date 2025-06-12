@@ -76,7 +76,7 @@ function train(num_episodes)
         legend = :topright
     )
     Plots.scatter!(1:length(returns2), returns2, label = "Return Policy 2")
-    display(current())           # pokaż wykres w REPL
+    display(current())         
     println("Return całej gry: $(sum(returns1)), $(sum(returns2))")
 end
 
@@ -247,8 +247,8 @@ AirHockey.reset!(env)
 
 
 
-train(500000)
+# train(500000)
 
-# push!(LOAD_PATH, joinpath(@__DIR__, "..", "prototype"))
-# using Visualize
-# visualize(env.params, train_with_visualization(101000; start_recording = 100000)...)
+push!(LOAD_PATH, joinpath(@__DIR__, "..", "prototype"))
+using Visualize
+visualize(env.params, train_with_visualization(101000; start_recording = 100000)...)
