@@ -20,9 +20,8 @@ end
 function simulate(env::AirHockeyEnv)
     policy_model1, policy_model2 = load_agent_models()
     policy1 = AirHockey.LearntPolicy(policy_model1)
-    policy2 = AirHockey.LearntPolicy(policy_model2)
-    # policy1 = AirHockey.RandomPolicy(Uniform(-π, π), Uniform(0, env.params.max_dv))
-    # policy2 = AirHockey.RandomPolicy(Uniform(-π, π), Uniform(0, env.params.max_dv))
+    # policy2 = AirHockey.LearntPolicy(policy_model2)
+    policy2 = RandomPolicy(Uniform(-env.params.max_dvx, env.params.max_dvx), Uniform(-env.params.max_dvy, env.params.max_dvy))
     puck_states = Vector{AirHockey.Puck}()
     mallet1_states = Vector{AirHockey.Mallet}()
     mallet2_states = Vector{AirHockey.Mallet}()
@@ -34,11 +33,11 @@ function simulate(env::AirHockeyEnv)
     push!(mallet2_states, deepcopy(env.state.agent2))
     push!(result_states, nothing)
     # push!(rewards_states, Float32[0,0])
-    for _ ∈ 1:5000
+    for _ ∈ 1:1000
         # Tutaj agent wykonuje akcje
         action1 = AirHockey.action(env, policy1)
         action2 = AirHockey.action(env, policy2)
-        println(action1, action2)  # Czy są różne?
+        # println(action1, action2)  # Czy są różne?
         # action1 = AirHockey.Action(0.0f0,0.0f0)
         # action2 = AirHockey.Action(0.0f0,0.0f0)
         trace = TracedEnv.step!(env, action1, action2)  
@@ -58,25 +57,28 @@ params = AirHockey.EnvParams(
     x_len = 100.0f0,
     y_len = 50.0f0,
     goal_width = 15.0f0,
-    puck_radius = 1.0f0,
+    puck_radius = 1.5f0,
     mallet_radius = 2.0f0,
     agent1_initial_pos = [10.0f0, 25.0f0],
     agent2_initial_pos = [90.0f0, 25.0f0],
     dt = 0.02f0,
-    max_dv = 10.0f0,
     band_e_loss = 0.95f0,
     restitution = 0.99f0,
-    puck_mass = 1.0f0,
-    mallet_mass = 2.0f0
+    puck_mass = 1.5f0,
+    mallet_mass = 2.0f0,
+    max_dvx = 15.0f0,
+    max_dvy = 15.0f0,
+    max_vxy = 80.0f0
 )
+
 
 # Tworzymy instancję środowiska z AirHockeyEnv
 agent1 = AirHockey.Mallet([0.0f0, 0.0f0], [5.0f0, 25.0f0])
 agent2 = AirHockey.Mallet([0.0f0, 0.0f0], [95.0f0, 25.0f0])
-env = AirHockey.AirHockeyEnv(params, AirHockey.State(agent1, agent2, AirHockey.Puck([0.0f0, 0.0f0], [50.0f0, 25.0f0])), false)
+env = AirHockey.AirHockeyEnv(params, AirHockey.State(agent1, agent2, AirHockey.Puck([0.0f0, 0.0f0], [50.0f0, 25.0f0])), false, 0.0f0, 0.0f0)
 # w sumie to co wyzej bez znaczenia
 AirHockey.reset!(env)
-env.state.puck.v = [0.0f0, -1.0f0]
+
 
 
 visualize(env.params, simulate(env)...)

@@ -1,24 +1,18 @@
 
 function action(env::AirHockeyEnv, p::RandomPolicy)
     Action(
-        rand(p.distribution_angle),
-        rand(p.distribution_len))
+        rand(p.distribution_vx),
+        rand(p.distribution_vy))
 end
 
 
 function action(env::AirHockeyEnv, p::ActorPolicy)
     state = env.state
-    # nie da sie sensownie dodawać wektorów polarnych więc i tak trzeba konwertować na kartezjanskie
-    policy_polar_action = denormalize_action(env.params,p.actor.model(state_to_input(env, state)))
-    # w teorii wypadałoby jakoś normalizować szum bo jest samplowany w kartezjańskich i nie wiemy jak one sie mają do zakresów [-1,1]² w polarnych
-    action_cartesian = convert_from_polar_to_cartesian(policy_polar_action...) .+ rand(p.noise) #to rand przyjmuje sie ze jest zdenormalizowane
-    normalized_polar_action = action_cartesian |>
-        x -> convert_from_cartesian_to_polar(x...) |>
-        x -> Action(x...) |>
-        x -> normalize_action(env.params, x) |>
-        x -> clamp.(x, -1, 1)
-
-    return output_to_action(env, normalized_polar_action)
+    policy_action = denormalize_action(env, p.actor.model(state_to_input(env, state)))
+    noise = rand(p.noise)
+    # println("policy: $(round.(policy_action, digits = 2))")
+    action_cartesian = policy_action .+ noise #to rand przyjmuje sie ze jest zdenormalizowane
+    return Action(action_cartesian...)
 end
 
 
